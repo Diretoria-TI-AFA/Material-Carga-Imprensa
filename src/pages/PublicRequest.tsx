@@ -83,22 +83,55 @@ export default function PublicRequest() {
     if (selectedMaterialIds.length === 0 || isFinalized) return;
 
     try {
-      const promises = selectedMaterialIds.map(id => {
+      const isAutoApproved = canPreFill;
+      const statusValue = isAutoApproved ? 'approved' : 'pending';
+
+      const promises = selectedMaterialIds.map(async (id) => {
         const mat = materials.find(m => m.id === id);
-        return pb.collection('access_requests').create({
+        
+        // 1. Criar a solicitação (aprovada ou pendente)
+        const request = await pb.collection('access_requests').create({
           requesterName,
           materialId: id,
           materialName: mat?.name || 'Material',
-          status: 'pending',
+          status: statusValue,
           isImmutable: true,
           notes: thirdPartyNotes,
           reason,
-          plannedDateTime
+          plannedDateTime,
+          authorizedBy: isAutoApproved ? profile?.warName : null
         });
+
+        // 2. Se for auto-aprovado, já realiza a cautela e atualiza o material
+        if (isAutoApproved && profile) {
+          // Criar registro de cautela
+          await pb.collection('cautions').create({
+            materialId: id,
+            materialName: mat?.name || 'Material',
+            userId: profile.id,
+            userName: requesterName, // Nome de quem está levando
+            cautionedAt: new Date().toISOString(),
+            keyUsed: 'A confirmar', // Diretor/Assessor confirma depois se necessário
+            status: 'active'
+          });
+
+          // Atualizar material
+          await pb.collection('materials').update(id, {
+            status: 'cautioned',
+            lastUpdatedBy: profile.warName
+          });
+        }
+
+        return request;
       });
 
       await Promise.all(promises);
-      setStatus(`${selectedMaterialIds.length} cautela(s) registrada(s) com sucesso! Os dados agora são imutáveis.`);
+      
+      const successMsg = isAutoApproved 
+        ? `${selectedMaterialIds.length} cautela(s) realizada(s) e aprovada(s) automaticamente!`
+        : `${selectedMaterialIds.length} solicitação(ões) enviada(s) para aprovação da diretoria.`;
+
+      setStatus(successMsg);
       setIsFinalized(true);
       setSelectedMaterialIds([]);
       setReason('');

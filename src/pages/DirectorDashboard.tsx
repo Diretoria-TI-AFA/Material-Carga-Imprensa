@@ -873,22 +873,25 @@ export default function DirectorDashboard() {
     id: string,
     status: 'rejected' | 'vetoed',
   ) => {
+    console.log(`Iniciando ${status} para o pedido: ${id}`);
     try {
       const data: any = { status };
 
       if (status === 'vetoed') {
-        data.vetoedBy = profile?.warName;
+        data.vetoedBy = profile?.warName || 'Diretor';
       }
 
       await pb.collection('access_requests').update(id, data);
+      console.log(`Pedido ${id} atualizado para ${status} com sucesso.`);
 
-      alert(status === 'rejected' ? 'Pedido rejeitado.' : 'Pedido vetado.');
+      alert(status === 'rejected' ? 'Pedido rejeitado com sucesso.' : 'Pedido vetado com sucesso.');
 
       await loadRequests();
       await loadDashboardSummary();
-    } catch (error) {
-      console.error('Erro ao atualizar solicitação:', error);
-      alert('Erro ao atualizar solicitação.');
+    } catch (error: any) {
+      console.error(`Erro ao processar ${status}:`, error);
+      const errorMsg = error.data?.message || error.message || 'Erro desconhecido';
+      alert(`Erro ao atualizar solicitação: ${errorMsg}`);
     }
   };
 
@@ -900,30 +903,45 @@ export default function DirectorDashboard() {
       return;
     }
 
+    const currentUserId = pb.authStore.model?.id || profile?.id;
+    if (!currentUserId) {
+      alert('Erro: ID do diretor não encontrado. Tente fazer login novamente.');
+      return;
+    }
+
+    console.log('Iniciando aprovação do pedido:', requestApproval.id);
+
     try {
       const request = requestApproval;
 
+      // 1. Atualizar a solicitação
       await pb.collection('access_requests').update(request.id, {
         status: 'approved',
-        authorizedBy: profile?.warName,
+        authorizedBy: profile?.warName || 'Diretor',
       });
+      console.log('Solicitação marcada como aprovada.');
 
+      // 2. Criar a cautela real
+      // Nota: Usamos o ID do Diretor que aprova se o requerente for externo
       await handleCreateCaution(
         request.materialId,
         request.materialName,
-        pb.authStore.model?.id,
+        currentUserId,
         request.requesterName,
         approvalKey,
       );
 
+      console.log('Fluxo de aprovação concluído com sucesso.');
       setRequestApproval(null);
       setApprovalKey('');
 
+      // 3. Recarregar dados
       await loadRequests();
       await loadDashboardSummary();
-    } catch (error) {
-      console.error('Erro ao aprovar solicitação:', error);
-      alert('Erro ao aprovar solicitação.');
+    } catch (error: any) {
+      console.error('Erro no fluxo de aprovação:', error);
+      const errorMsg = error.data?.message || error.message || 'Erro desconhecido';
+      alert(`Erro ao aprovar solicitação: ${errorMsg}`);
     }
   };
 
