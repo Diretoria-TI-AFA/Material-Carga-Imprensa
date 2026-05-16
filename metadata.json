@@ -1,0 +1,8 @@
+{
+  "name": "GCM - Gestão de Carga e Material",
+  "description": "Sistema completo para controle de cautela de materiais, chaves e gestão de ativos com diferentes níveis de acesso e monitoramento em tempo real.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
