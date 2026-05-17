@@ -9,11 +9,9 @@ import { format } from 'date-fns';
 export default function AssessorDashboard() {
   const { profile } = useAuth();
   const [materials, setMaterials] = useState<Material[]>([]);
-  const [keys, setKeys] = useState<KeyControl[]>([]);
   const [myCautions, setMyCautions] = useState<Caution[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedMaterial, setSelectedMaterial] = useState<Material | null>(null);
-  const [selectedKey, setSelectedKey] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('Todos');
 
@@ -33,12 +31,8 @@ export default function AssessorDashboard() {
         console.log('Assessor: Fetching materials and keys...');
         const matsRes = await pb.collection('materials').getFullList<Material>();
         console.log('Assessor: Materials ok');
-        const keysRes = await pb.collection('keys_control').getFullList<KeyControl>();
-        console.log('Assessor: Keys ok');
         
         setMaterials(matsRes);
-        setKeys(keysRes);
-        if (keysRes.length > 0) setSelectedKey(keysRes[0].name);
       } catch (err) {
         console.error('Error fetching data in Assessor:', err);
       } finally {
@@ -99,7 +93,7 @@ export default function AssessorDashboard() {
         userId: profile.id,
         userName: profile.warName,
         cautionedAt: new Date().toISOString(),
-        keyUsed: selectedKey,
+        keyUsed: '-',
         status: 'active'
       });
 
@@ -162,7 +156,6 @@ export default function AssessorDashboard() {
                   </div>
                   <div>
                     <p className="font-bold text-slate-800">{caution.materialName}</p>
-                    <p className="text-[10px] uppercase font-black text-slate-400 leading-none mt-1">Utilizando: {caution.keyUsed}</p>
                   </div>
                 </div>
                 <button
@@ -273,29 +266,6 @@ export default function AssessorDashboard() {
             <p className="text-slate-500 mb-6">Confirme os detalhes da cautela para <span className="font-semibold text-slate-900">{selectedMaterial.name}</span>.</p>
             
             <div className="space-y-6">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-3 flex items-center space-x-2">
-                  <Key className="w-4 h-4" />
-                  <span>Selecione a Chave Utilizada</span>
-                </label>
-                <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto p-1">
-                  {keys.map(key => (
-                    <button
-                      key={key.id}
-                      onClick={() => setSelectedKey(key.name)}
-                      className={`py-2 px-3 text-xs font-semibold rounded-lg border transition-all truncate ${
-                        selectedKey === key.name
-                        ? 'bg-blue-600 border-blue-600 text-white' 
-                        : 'bg-white border-slate-200 text-slate-600 hover:border-blue-400'
-                      }`}
-                      title={key.name}
-                    >
-                      {key.name}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
               <div className="pt-4 flex space-x-3">
                 <button 
                   onClick={() => setSelectedMaterial(null)}

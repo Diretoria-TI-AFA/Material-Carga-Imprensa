@@ -832,24 +832,14 @@ export default function DirectorDashboard() {
     materialName: string,
     userId: string,
     userName: string,
-    keyUsed: string,
   ) => {
     try {
-      const keyAlreadyInUse = activeCautions.some(
-        caution => caution.status === 'active' && caution.keyUsed === keyUsed,
-      );
-
-      if (keyAlreadyInUse) {
-        alert('Esta chave já está em posse de outra pessoa.');
-        return;
-      }
-
       await pb.collection('cautions').create({
         materialId,
         materialName,
         userId,
         userName,
-        keyUsed,
+        keyUsed: '-',
         cautionedAt: new Date().toISOString(),
         status: 'active',
       });
@@ -866,6 +856,28 @@ export default function DirectorDashboard() {
     } catch (error) {
       console.error('Erro ao criar cautela:', error);
       alert('Erro ao cautelar material.');
+    }
+  };
+
+  const handleReturnMaterial = async (caution: Caution) => {
+    try {
+      await pb.collection('cautions').update(caution.id, {
+        status: 'completed',
+        returnedAt: new Date().toISOString(),
+      });
+
+      await pb.collection('materials').update(caution.materialId, {
+        status: 'available',
+        lastUpdatedBy: profile?.warName,
+      });
+
+      alert('Material devolvido com sucesso.');
+
+      await refreshMainData();
+      if (activeTab === 'history') await loadHistory();
+    } catch (error) {
+      console.error('Erro ao devolver material:', error);
+      alert('Erro ao devolver material.');
     }
   };
 
@@ -895,13 +907,8 @@ export default function DirectorDashboard() {
     }
   };
 
-  const handleApproveRequestWithKey = async () => {
+  const handleApproveRequest = async () => {
     if (!requestApproval) return;
-
-    if (!approvalKey) {
-      alert('Selecione uma chave para aprovar a cautela.');
-      return;
-    }
 
     const currentUserId = pb.authStore.model?.id || profile?.id;
     if (!currentUserId) {
@@ -922,18 +929,15 @@ export default function DirectorDashboard() {
       console.log('Solicitação marcada como aprovada.');
 
       // 2. Criar a cautela real
-      // Nota: Usamos o ID do Diretor que aprova se o requerente for externo
       await handleCreateCaution(
         request.materialId,
         request.materialName,
         currentUserId,
         request.requesterName,
-        approvalKey,
       );
 
       console.log('Fluxo de aprovação concluído com sucesso.');
       setRequestApproval(null);
-      setApprovalKey('');
 
       // 3. Recarregar dados
       await loadRequests();
@@ -1495,14 +1499,25 @@ export default function DirectorDashboard() {
                       <td className="px-6 py-4 text-sm font-semibold text-slate-600">{caution.userName}</td>
                       <td className="px-6 py-4">
                         <span className="rounded-lg bg-slate-100 px-2 py-1 font-mono text-xs font-black text-slate-600">
-                          {caution.keyUsed}
+                          {caution.keyUsed === '-' ? 'N/A' : caution.keyUsed}
                         </span>
                       </td>
                       <td className="px-6 py-4 text-xs font-semibold text-slate-500">
                         {formatDateTime(caution.cautionedAt)}
                       </td>
-                      <td className="px-6 py-4 text-xs font-semibold text-slate-500">
-                        {formatDateTime(caution.returnedAt)}
+                      <td className="px-6 py-4">
+                        {caution.status === 'active' ? (
+                          <button
+                            onClick={() => handleReturnMaterial(caution)}
+                            className="rounded-xl bg-slate-900 px-3 py-1.5 text-[10px] font-black text-white transition-all hover:bg-black"
+                          >
+                            Devolver
+                          </button>
+                        ) : (
+                          <span className="text-xs font-semibold text-slate-500">
+                            {formatDateTime(caution.returnedAt)}
+                          </span>
+                        )}
                       </td>
                       <td className="px-6 py-4">
                         <span
@@ -1547,7 +1562,7 @@ export default function DirectorDashboard() {
             <div>
               <h2 className="text-xl font-black text-slate-900">Solicitações de Cautela</h2>
               <p className="mt-1 text-sm font-medium text-slate-500">
-                Ao aprovar, selecione uma chave livre para registrar corretamente o detentor.
+                Aprove solicitações de materiais aqui.
               </p>
             </div>
 
@@ -2017,9 +2032,6 @@ export default function DirectorDashboard() {
             <h2 className="text-2xl font-black text-slate-900">
               Cautelar: {isDirectCautioning.name}
             </h2>
-            <p className="mt-2 text-sm font-semibold text-slate-500">
-              Selecione uma chave livre para registrar corretamente quem está em posse.
-            </p>
 
             <div className="mt-6 space-y-4">
               <div>
@@ -2035,25 +2047,6 @@ export default function DirectorDashboard() {
                 />
               </div>
 
-              <div>
-                <label className="mb-1 block text-[10px] font-black uppercase tracking-widest text-slate-400">
-                  Chave utilizada
-                </label>
-                <select
-                  required
-                  className="w-full rounded-2xl border border-slate-200 p-3 outline-none focus:ring-4 focus:ring-blue-50"
-                  value={directCautionForm.keyId}
-                  onChange={event => setDirectCautionForm({ ...directCautionForm, keyId: event.target.value })}
-                >
-                  <option value="">Selecione uma chave livre...</option>
-                  {availableKeys.map(({ key }) => (
-                    <option key={key.id} value={key.name}>
-                      {key.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
               <div className="flex gap-3 pt-4">
                 <button
                   type="button"
@@ -2065,13 +2058,12 @@ export default function DirectorDashboard() {
 
                 <button
                   onClick={() => {
-                    if (directCautionForm.person && directCautionForm.keyId) {
+                    if (directCautionForm.person) {
                       handleCreateCaution(
                         isDirectCautioning.id,
                         isDirectCautioning.name,
                         pb.authStore.model?.id,
                         directCautionForm.person,
-                        directCautionForm.keyId,
                       );
                       setIsDirectCautioning(null);
                     }
@@ -2094,9 +2086,6 @@ export default function DirectorDashboard() {
             className="w-full max-w-md rounded-3xl bg-white p-8 shadow-2xl"
           >
             <h2 className="text-2xl font-black text-slate-900">Aprovar cautela</h2>
-            <p className="mt-2 text-sm font-semibold text-slate-500">
-              Selecione a chave que será entregue para {requestApproval.requesterName}.
-            </p>
 
             <div className="mt-5 rounded-2xl bg-slate-50 p-4">
               <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
@@ -2105,31 +2094,11 @@ export default function DirectorDashboard() {
               <p className="mt-1 font-black text-slate-900">{requestApproval.materialName}</p>
             </div>
 
-            <div className="mt-5">
-              <label className="mb-1 block text-[10px] font-black uppercase tracking-widest text-slate-400">
-                Chave livre
-              </label>
-              <select
-                required
-                value={approvalKey}
-                onChange={event => setApprovalKey(event.target.value)}
-                className="w-full rounded-2xl border border-slate-200 p-3 outline-none focus:ring-4 focus:ring-blue-50"
-              >
-                <option value="">Selecione uma chave...</option>
-                {availableKeys.map(({ key }) => (
-                  <option key={key.id} value={key.name}>
-                    {key.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
             <div className="mt-6 flex gap-3">
               <button
                 type="button"
                 onClick={() => {
                   setRequestApproval(null);
-                  setApprovalKey('');
                 }}
                 className="flex-1 rounded-2xl border border-slate-200 py-3 font-black text-slate-500 transition-colors hover:bg-slate-50"
               >
@@ -2137,7 +2106,7 @@ export default function DirectorDashboard() {
               </button>
 
               <button
-                onClick={handleApproveRequestWithKey}
+                onClick={handleApproveRequest}
                 className="flex-1 rounded-2xl bg-green-600 py-3 font-black text-white shadow-lg shadow-green-100 transition-colors hover:bg-green-700"
               >
                 Aprovar

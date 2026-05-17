@@ -111,7 +111,7 @@ export default function PublicRequest() {
             userId: profile.id,
             userName: requesterName, // Nome de quem está levando
             cautionedAt: new Date().toISOString(),
-            keyUsed: 'A confirmar', // Diretor/Assessor confirma depois se necessário
+            keyUsed: '-',
             status: 'active'
           });
 
