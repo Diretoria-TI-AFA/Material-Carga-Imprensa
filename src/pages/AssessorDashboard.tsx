@@ -149,20 +149,22 @@ export default function AssessorDashboard() {
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {myCautions.map(caution => (
-              <div key={caution.id} className="bg-white border-2 border-blue-100 rounded-2xl p-5 shadow-sm flex justify-between items-center group hover:border-blue-500 transition-all">
+              <div key={caution.id} className="bg-gradient-to-r from-blue-50 to-white border-2 border-blue-200 rounded-3xl p-6 shadow-md flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 group hover:border-blue-500 transition-all">
                 <div className="flex items-center space-x-4">
-                  <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-all">
-                    <Package className="w-5 h-5" />
+                  <div className="w-12 h-12 bg-blue-100 rounded-2xl flex items-center justify-center text-blue-600 shadow-inner group-hover:bg-blue-600 group-hover:text-white transition-all">
+                    <Package className="w-6 h-6" />
                   </div>
                   <div>
-                    <p className="font-bold text-slate-800">{caution.materialName}</p>
+                    <span className="text-[10px] uppercase font-black text-blue-500 tracking-wider">Cautela Ativa</span>
+                    <p className="text-lg font-black text-slate-800">{caution.materialName}</p>
+                    <p className="text-xs font-semibold text-slate-500 mt-1">Retirado em: {format(new Date(caution.cautionedAt), 'dd/MM/yyyy HH:mm')}</p>
                   </div>
                 </div>
                 <button
                   onClick={() => handleReturn(caution)}
-                  className="bg-slate-900 text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-black transition-all shadow-lg shadow-slate-200"
+                  className="w-full sm:w-auto bg-slate-900 text-white px-6 py-3 rounded-2xl text-sm font-black hover:bg-black hover:scale-105 transition-all shadow-xl shadow-slate-200/50"
                 >
-                  Devolver
+                  Confirmar Devolução
                 </button>
               </div>
             ))}

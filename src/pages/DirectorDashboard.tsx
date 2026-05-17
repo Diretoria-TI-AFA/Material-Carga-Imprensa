@@ -25,10 +25,11 @@ import {
   ShieldCheck,
   BarChart3,
   ListChecks,
+  Undo2,
 } from 'lucide-react';
 import { format } from 'date-fns';
 
-type DashboardTab = 'inventory' | 'keys' | 'history' | 'cautions' | 'alterations' | 'members';
+type DashboardTab = 'inventory' | 'keys' | 'history' | 'cautions' | 'alterations' | 'members' | 'returns';
 type HistoryStatus = 'all' | 'active' | 'completed';
 
 type DashboardSummary = {
@@ -484,9 +485,11 @@ export default function DirectorDashboard() {
       setHistory(result.items);
       setHistoryTotal(result.totalItems);
       setHistoryTotalPages(result.totalPages || 1);
-    } catch (error) {
-      console.error('Erro ao buscar histórico:', error);
-      alert('Erro ao buscar histórico.');
+    } catch (error: any) {
+      if (!error.isAbort) {
+        console.error('Erro ao buscar histórico:', error);
+        alert('Erro ao buscar histórico.');
+      }
     } finally {
       setHistoryLoading(false);
     }
@@ -598,7 +601,7 @@ export default function DirectorDashboard() {
   }, [loadMaterials, initialLoading]);
 
   useEffect(() => {
-    if (activeTab === 'history') {
+    if (activeTab === 'history' || activeTab === 'returns') {
       loadHistory();
     }
 
@@ -635,7 +638,7 @@ export default function DirectorDashboard() {
         const refreshEverything = async () => {
           await refreshMainData();
 
-          if (activeTab === 'history') await loadHistory();
+          if (activeTab === 'history' || activeTab === 'returns') await loadHistory();
           if (activeTab === 'cautions') await loadRequests();
           if (activeTab === 'alterations') await loadAlterations();
           if (activeTab === 'members') await loadUsers();
@@ -1071,6 +1074,7 @@ export default function DirectorDashboard() {
         <div className="flex gap-2 overflow-x-auto">
           {([
             { id: 'inventory', label: 'Inventário', Icon: Package },
+            { id: 'returns', label: 'Devoluções', Icon: Undo2 },
             { id: 'keys', label: 'Chaves', Icon: Key },
             { id: 'history', label: 'Operações', Icon: History },
             { id: 'cautions', label: 'Cautelas', Icon: ListChecks },
@@ -1404,6 +1408,61 @@ export default function DirectorDashboard() {
               Nenhuma chave encontrada para a busca informada.
             </div>
           )}
+        </motion.section>
+      )}
+
+      {activeTab === 'returns' && (
+        <motion.section initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="space-y-5">
+          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+            <h2 className="flex items-center gap-2 text-xl font-black text-slate-900">
+              <Undo2 className="h-5 w-5 text-slate-400" />
+              Materiais a Devolver
+            </h2>
+            <p className="mt-1 text-sm font-medium text-slate-500">
+              Lista exclusiva de materiais que estão fora do depósito e precisam ser devolvidos.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {historyLoading && history.length === 0 && (
+              <div className="col-span-full py-12 text-center text-sm font-semibold text-slate-500">
+                <RefreshCw className="mx-auto mb-3 h-6 w-6 animate-spin text-slate-400" />
+                Buscando...
+              </div>
+            )}
+            {!historyLoading && history.filter(c => c.status === 'active').length === 0 && (
+              <div className="col-span-full rounded-3xl border border-slate-200 bg-slate-50 py-12 text-center text-sm font-semibold text-slate-500">
+                Nenhuma cautela ativa no momento.
+              </div>
+            )}
+            {history
+              .filter(caution => caution.status === 'active')
+              .map(caution => (
+                <div key={caution.id} className="group flex flex-col justify-between rounded-3xl border-2 border-blue-100 bg-white p-5 shadow-sm transition-all hover:border-blue-400 hover:shadow-md">
+                  <div>
+                    <div className="mb-4 flex items-center justify-between">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+                        <Package className="h-5 w-5" />
+                      </div>
+                      <span className="rounded-full bg-orange-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-orange-700">
+                        Pendente
+                      </span>
+                    </div>
+                    <h3 className="text-lg font-black text-slate-900">{caution.materialName}</h3>
+                    <p className="mt-1 text-sm font-bold text-slate-600">Com: {caution.userName}</p>
+                    <p className="mt-3 text-xs font-semibold text-slate-400">
+                      Retirado: {formatDateTime(caution.cautionedAt)}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => handleReturnMaterial(caution)}
+                    className="mt-6 w-full rounded-2xl bg-slate-900 py-3 text-sm font-black text-white shadow-lg shadow-slate-200 transition-all hover:bg-black"
+                  >
+                    Confirmar Devolução
+                  </button>
+                </div>
+              ))}
+          </div>
         </motion.section>
       )}
 
